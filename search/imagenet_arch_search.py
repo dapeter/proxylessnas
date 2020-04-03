@@ -4,7 +4,7 @@
 
 import argparse
 
-from models import ImagenetRunConfig
+from models import ImagenetRunConfig, SpeechCommandsRunConfig
 from nas_manager import *
 from models.super_nets.super_proxyless import SuperProxylessNASNets
 
@@ -39,7 +39,7 @@ parser.add_argument('--init_lr', type=float, default=0.025)
 parser.add_argument('--lr_schedule_type', type=str, default='cosine')
 # lr_schedule_param
 
-parser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet'])
+parser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet', 'speech_commands'])
 parser.add_argument('--train_batch_size', type=int, default=256)
 parser.add_argument('--test_batch_size', type=int, default=1000)
 parser.add_argument('--valid_size', type=int, default=50000)
@@ -117,9 +117,16 @@ if __name__ == '__main__':
         'momentum': args.momentum,
         'nesterov': not args.no_nesterov,
     }
-    run_config = ImagenetRunConfig(
-        **args.__dict__
-    )
+    if args.dataset == "imagenet":
+        run_config = ImagenetRunConfig(
+            **args.__dict__
+        )
+    elif args.dataset == "speech_commands":
+        run_config = SpeechCommandsRunConfig(
+            **args.__dict__
+        )
+    else:
+        raise NotImplementedError
 
     # debug, adjust run_config
     if args.debug:
