@@ -5,29 +5,18 @@
 import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import torchaudio
+import librosa
 
 from data_providers.base_provider import *
 
 
 def loader(path):
-    waveform, sample_rate = torchaudio.load(path, normalization=True)
-    padded_waveform = torch.zeros([1, sample_rate])
-    padded_waveform[0, 0:len(waveform[0])] = waveform[0]
+    waveform, sample_rate = librosa.load(path, sr=16000)
+    padded_waveform = np.zeros(16000)
+    padded_waveform[0:len(waveform)] = waveform
+    mfcc = librosa.feature.mfcc(padded_waveform, sr=sample_rate, n_mfcc=40, hop_length=320, win_length=640)
 
-    params = {
-        "channel": 0,
-        "dither": 0.0,
-        "window_type": "hanning",
-        "frame_length": 40,
-        "frame_shift": 20,
-        "remove_dc_offset": False,
-        "round_to_power_of_two": False,
-        "sample_frequency": sample_rate,
-    }
-
-    mfcc = torchaudio.compliance.kaldi.mfcc(padded_waveform, **params)
-    return mfcc.unsqueeze(0)
+    return torch.tensor(mfcc).unsqueeze(0)
 
 
 class SpeechCommandsDataProvider(DataProvider):
@@ -61,8 +50,7 @@ class SpeechCommandsDataProvider(DataProvider):
     @property
     def data_shape(self):
         # return 1, 40, 49  # C, H, W : should be
-        return 1, 49, 13
-        #return 1, 40, 51 # C, H, W
+        return 1, 40, 51 # C, H, W
 
     # TODO add silence
     @property
