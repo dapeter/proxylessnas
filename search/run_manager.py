@@ -484,6 +484,7 @@ class RunManager:
                 images, labels = images.to(self.device), labels.to(self.device)
                 # compute output
                 output = net(images)
+                labels = labels.squeeze_()
                 loss = self.criterion(output, labels)
                 # measure accuracy and record loss
                 acc1, acc5 = accuracy(output, labels, topk=(1, 5))

@@ -3,20 +3,9 @@
 # International Conference on Learning Representations (ICLR), 2019.
 
 import torch.utils.data
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-import librosa
+import pickle
 
 from data_providers.base_provider import *
-
-
-def loader(path):
-    waveform, sample_rate = librosa.load(path, sr=16000)
-    padded_waveform = np.zeros(16000)
-    padded_waveform[0:len(waveform)] = waveform
-    mfcc = librosa.feature.mfcc(padded_waveform, sr=sample_rate, n_mfcc=40, hop_length=320, win_length=640)
-
-    return torch.tensor(mfcc).unsqueeze(0)
 
 
 class SpeechCommandsDataProvider(DataProvider):
@@ -25,9 +14,16 @@ class SpeechCommandsDataProvider(DataProvider):
                  n_worker=32, resize_scale=0.08, distort_color=None):
         self._save_path = save_path
 
-        train_dataset = datasets.DatasetFolder(self.save_path + "train/", loader, extensions=('.wav',))
-        validation_dataset = datasets.DatasetFolder(self.save_path + "val/", loader, extensions=('.wav',))
-        test_dataset = datasets.DatasetFolder(self.save_path + "test/", loader, extensions=('.wav',))
+        with open(self.save_path + "speech_commands.p", "rb") as p_file:
+            data, class_names = pickle.load(p_file)
+
+        x_train, y_train = data["train"]
+        x_val, y_val = data["val"]
+        x_test, y_test = data["test"]
+
+        train_dataset = torch.utils.data.TensorDataset(torch.tensor(x_train), torch.tensor(y_train))
+        validation_dataset = torch.utils.data.TensorDataset(torch.tensor(x_val), torch.tensor(y_val))
+        test_dataset = torch.utils.data.TensorDataset(torch.tensor(x_test), torch.tensor(y_test))
 
         self.train = torch.utils.data.DataLoader(
             train_dataset, batch_size=train_batch_size,

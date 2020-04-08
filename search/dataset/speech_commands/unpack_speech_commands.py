@@ -3,7 +3,9 @@ import tarfile
 from pathlib import Path
 import re
 import hashlib
-
+import librosa
+import numpy as np
+import pickle
 
 def which_set(filename, validation_percentage=10, testing_percentage=10):
     MAX_NUM_WAVS_PER_CLASS = 2 ** 27 - 1  # ~134M
@@ -62,15 +64,37 @@ def which_files(members, partition):
             if class_name in keywords:
                 yield tarinfo
             elif class_name in unknowns:
-                tarinfo.path = './unknown/' + os.path.splitext(os.path.basename(tarinfo.path))[0] \
-                               + "_" + class_name + ".wav"
-                yield tarinfo
+                # no unknowns for now
+                #tarinfo.path = './unknown/' + os.path.splitext(os.path.basename(tarinfo.path))[0] \
+                #               + "_" + class_name + ".wav"
+                #yield tarinfo
+                pass
             elif class_name == "_background_noise_":
                 pass
             else:
                 print("not good:")
                 print(tarinfo.name)
                 exit(0)
+
+
+def load_set(path, class_index):
+    n = sum([len(files) for r, d, files in os.walk(path)])
+    x = np.empty(shape=[n, 1, 40, 51], dtype=np.single)
+    y = np.empty(shape=[n, ], dtype=np.int_)
+
+    path_list = Path(path).glob('**/*.wav')
+    for i, path in enumerate(path_list):
+        path_str = str(path)
+
+        waveform, sample_rate = librosa.load(path_str, sr=16000)
+        padded_waveform = np.zeros(16000)
+        padded_waveform[0:len(waveform)] = waveform
+        mfcc = librosa.feature.mfcc(padded_waveform, sr=sample_rate, n_mfcc=40, hop_length=320, win_length=640)
+
+        x[i] = mfcc
+        y[i] = class_index[os.path.basename(os.path.dirname(path_str))]
+
+    return x, y
 
 
 tar_name = 'speech_commands_v0.01.tar.gz'
@@ -83,7 +107,28 @@ Path("train/").mkdir(parents=True, exist_ok=True)
 Path("val/").mkdir(parents=True, exist_ok=True)
 Path("test/").mkdir(parents=True, exist_ok=True)
 
+print("Extracting files from {} ...".format(tar_name))
 with tarfile.open(tar_name, 'r:gz') as tar:
     tar.extractall(path="train/", members=which_files(tar, "training"))
     tar.extractall(path="val/", members=which_files(tar, "validation"))
     tar.extractall(path="test/", members=which_files(tar, "testing"))
+
+class_name = {i:k for i, k in enumerate(keywords)}
+class_index = {k:i for i, k in enumerate(keywords)}
+
+print("Load train set ...")
+x_train, y_train = load_set("train/", class_index)
+print("Load validation set ...")
+x_val, y_val = load_set("val/", class_index)
+print("Load test set ...")
+x_test, y_test = load_set("test/", class_index)
+
+data = {"train": (x_train, y_train),
+        "val": (x_val, y_val),
+        "test": (x_test, y_test)}
+
+print("Write dataset to {} ...".format("speech_commands.p"))
+with open("speech_commands.p", "wb") as p_file:
+    pickle.dump((data, class_name), p_file)
+
+print("Done.")
