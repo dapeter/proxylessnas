@@ -1,6 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=test
-#SBATCH --time=00:30:00
+#SBATCH --job-name=pless
 #SBATCH --gres=gpu
 #SBATCH --partition=gpu,gpu2,gpu6
 #SBATCH --mem=8G
@@ -11,24 +10,23 @@
 #################
 
 # overwrite home directory for clean environment
-export HOME="/srv/tmp/${USER}" # SSD on simulation hosts
+export HOME="/srv/tmp/${USER}" # SSD on your workstation
 
 # miniconda base dir
 _conda_base_dir="${HOME}"
 
 # conda python environment to use
-_conda_env="cuda10.1_p3.8"
+_conda_env="cuda10.0_p3.7"
 
 # python version to use
-_conda_python_version="3.8"
+_conda_python_version="3.7"
 
 # python packages to install:
 # conda packages
-_conda_install_packages="numpy matplotlib cudatoolkit=10.1 Pillow tqdm" 
-
+_conda_install_packages="numpy matplotlib pillow=6.2.1 tqdm pyyaml cudatoolkit=10.0 cudnn pytorch torchvision"
 # conda packages from a conda-channel (list of <channel>:<package>)
 #_conda_channel_install_packages="conda-forge:matplotlib2tikz anaconda:cudatoolkit=10.0 anaconda:cudnn anaconda:tensorflow-gpu anaconda:cupti"
-_conda_channel_install_packages="pytorch:pytorch pytorch:torchvision"
+#_conda_channel_install_packages="pytorch:pytorch=1.3.1 pytorch:torchvision=0.4.2 pytorch:torchaudio"
 
 ########################
 # code for environment #
@@ -40,7 +38,7 @@ mkdir -p ${HOME} || exit 1
 # define custom environment
 # minimal $PATH for home
 export PATH=${_local_cuda_bin_path}:${_conda_base_dir}/miniconda${_conda_python_version:0:1}/bin:${HOME}/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
-
+  
 # python
 # install miniconda
 if [ ! -d ${_conda_base_dir}/miniconda${_conda_python_version:0:1} ]; then
@@ -82,6 +80,12 @@ if [ -n "${INSTALL}" ]; then
   conda install --yes ${_conda_install_packages}
   for _conda_channel_package in ${_conda_channel_install_packages}; do
     conda install --yes -c ${_conda_channel_package%:*} ${_conda_channel_package#*:}
+  done
+  for _pip_package in ${_pip_install_packages}; do
+    pip install --exists-action=i ${_pip_package}
+  done
+  for _pip_package in ${_pip_install_whl}; do
+    pip install --exists-action=i ${_pip_package}
   done
 fi
 
