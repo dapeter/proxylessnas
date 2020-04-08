@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=pless
-#SBATCH --gres=gpu
+#SBATCH --gres=gpu:TeslaK40c:1
 #SBATCH --partition=gpu,gpu2,gpu6
 #SBATCH --mem=8G
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=4
 
 #################
 # configuration #
@@ -26,7 +26,7 @@ _conda_python_version="3.7"
 _conda_install_packages="numpy matplotlib pillow=6.2.1 tqdm pyyaml cudatoolkit=10.0 cudnn pytorch torchvision"
 # conda packages from a conda-channel (list of <channel>:<package>)
 #_conda_channel_install_packages="conda-forge:matplotlib2tikz anaconda:cudatoolkit=10.0 anaconda:cudnn anaconda:tensorflow-gpu anaconda:cupti"
-#_conda_channel_install_packages="pytorch:pytorch=1.3.1 pytorch:torchvision=0.4.2 pytorch:torchaudio"
+_conda_channel_install_packages="conda-forge:librosa"
 
 ########################
 # code for environment #
@@ -100,8 +100,9 @@ echo "HOSTNAME=${HOSTNAME}"
 # START: user code #
 ####################
 
-echo -e "\n\nRUN: python eval.py -d cifar10\n"
-python eval.py -d cifar10
+echo -e "\n\nRUN: search\n"
+cd search
+python imagenet_arch_search.py --path proxyless_test --dataset speech_commands --width_stages "32,64" --n_cell_stages "2,2" --stride_stages "2,1" --init_lr 0.1
 
 ##################
 # END: user code #
