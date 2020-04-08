@@ -51,7 +51,7 @@ class SpeechCommandsDataProvider(DataProvider):
     # TODO add silence
     @property
     def n_classes(self):
-        return 10 #11 #12
+        return 12 #11 #12
 
     @property
     def save_path(self):

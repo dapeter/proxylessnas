@@ -6,6 +6,7 @@ import hashlib
 import librosa
 import numpy as np
 import pickle
+import random
 
 def which_set(filename, validation_percentage=10, testing_percentage=10):
     MAX_NUM_WAVS_PER_CLASS = 2 ** 27 - 1  # ~134M
@@ -64,10 +65,9 @@ def which_files(members, partition):
             if class_name in keywords:
                 yield tarinfo
             elif class_name in unknowns:
-                # no unknowns for now
-                #tarinfo.path = './unknown/' + os.path.splitext(os.path.basename(tarinfo.path))[0] \
-                #               + "_" + class_name + ".wav"
-                #yield tarinfo
+                tarinfo.path = './unknown/' + os.path.splitext(os.path.basename(tarinfo.path))[0] \
+                               + "_" + class_name + ".wav"
+                yield tarinfo
                 pass
             elif class_name == "_background_noise_":
                 pass
@@ -78,23 +78,50 @@ def which_files(members, partition):
 
 
 def load_set(path, class_index):
-    n = sum([len(files) for r, d, files in os.walk(path)])
-    x = np.empty(shape=[n, 1, 40, 51], dtype=np.single)
-    y = np.empty(shape=[n, ], dtype=np.int_)
+    x = []
+    y = []
 
     path_list = Path(path).glob('**/*.wav')
-    for i, path in enumerate(path_list):
-        path_str = str(path)
+    for pl in path_list:
+        path_str = str(pl)
+
+        if "unknown" in path_str:
+            continue
 
         waveform, sample_rate = librosa.load(path_str, sr=16000)
         padded_waveform = np.zeros(16000)
         padded_waveform[0:len(waveform)] = waveform
         mfcc = librosa.feature.mfcc(padded_waveform, sr=sample_rate, n_mfcc=40, hop_length=320, win_length=640)
 
-        x[i] = mfcc
-        y[i] = class_index[os.path.basename(os.path.dirname(path_str))]
+        x.append(mfcc.reshape((1, 40, 51)))
+        y.append(class_index[os.path.basename(os.path.dirname(path_str))])
 
-    return x, y
+    n = len(x)
+
+    unknown_file_names = []
+    path_list = Path(path).glob('unknown/*.wav')
+    for pl in path_list:
+        unknown_file_names.append(str(pl))
+
+    n_unknown = n // 10
+    for _ in range(n_unknown):
+        unknown_path = random.choice(unknown_file_names)
+
+        waveform, sample_rate = librosa.load(unknown_path, sr=16000)
+        padded_waveform = np.zeros(16000)
+        padded_waveform[0:len(waveform)] = waveform
+        mfcc = librosa.feature.mfcc(padded_waveform, sr=sample_rate, n_mfcc=40, hop_length=320, win_length=640)
+
+        x.append(mfcc.reshape((1, 40, 51)))
+        y.append(class_index["unknown"])
+
+    n_silence = n // 10
+    zero_mfcc = librosa.feature.mfcc(np.zeros(16000), sr=16000, n_mfcc=40, hop_length=320, win_length=640)
+    for _ in range(n_silence):
+        x.append(zero_mfcc.reshape((1, 40, 51)))
+        y.append(class_index["silence"])
+
+    return np.array(x), np.array(y)
 
 
 tar_name = 'speech_commands_v0.01.tar.gz'
@@ -113,6 +140,8 @@ with tarfile.open(tar_name, 'r:gz') as tar:
     tar.extractall(path="val/", members=which_files(tar, "validation"))
     tar.extractall(path="test/", members=which_files(tar, "testing"))
 
+keywords.append('silence')
+keywords.append('unknown')
 class_name = {i:k for i, k in enumerate(keywords)}
 class_index = {k:i for i, k in enumerate(keywords)}
 
