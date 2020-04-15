@@ -3,10 +3,8 @@ import tarfile
 from pathlib import Path
 import re
 import hashlib
-import librosa
-import numpy as np
-import pickle
-import random
+import wave
+import struct
 
 def which_set(filename, validation_percentage=10, testing_percentage=10):
     MAX_NUM_WAVS_PER_CLASS = 2 ** 27 - 1  # ~134M
@@ -62,66 +60,14 @@ def which_files(members, partition):
     for tarinfo in members:
         if os.path.splitext(tarinfo.name)[1] == ".wav" and which_set(tarinfo.name) == partition:
             class_name = os.path.basename(os.path.dirname(tarinfo.name))
-            if class_name in keywords:
+            if class_name in keywords or class_name == "_background_noise_":
                 yield tarinfo
             elif class_name in unknowns:
                 tarinfo.path = './unknown/' + os.path.splitext(os.path.basename(tarinfo.path))[0] \
                                + "_" + class_name + ".wav"
                 yield tarinfo
-                pass
-            elif class_name == "_background_noise_":
-                pass
             else:
-                print("not good:")
-                print(tarinfo.name)
-                exit(0)
-
-
-def load_set(path, class_index):
-    x = []
-    y = []
-
-    path_list = Path(path).glob('**/*.wav')
-    for pl in path_list:
-        path_str = str(pl)
-
-        if "unknown" in path_str:
-            continue
-
-        waveform, sample_rate = librosa.load(path_str, sr=16000)
-        padded_waveform = np.zeros(16000)
-        padded_waveform[0:len(waveform)] = waveform
-        mfcc = librosa.feature.mfcc(padded_waveform, sr=sample_rate, n_mfcc=40, hop_length=320, win_length=640)
-
-        x.append(mfcc.reshape((1, 40, 51)))
-        y.append(class_index[os.path.basename(os.path.dirname(path_str))])
-
-    n = len(x)
-
-    unknown_file_names = []
-    path_list = Path(path).glob('unknown/*.wav')
-    for pl in path_list:
-        unknown_file_names.append(str(pl))
-
-    n_unknown = n // 10
-    for _ in range(n_unknown):
-        unknown_path = random.choice(unknown_file_names)
-
-        waveform, sample_rate = librosa.load(unknown_path, sr=16000)
-        padded_waveform = np.zeros(16000)
-        padded_waveform[0:len(waveform)] = waveform
-        mfcc = librosa.feature.mfcc(padded_waveform, sr=sample_rate, n_mfcc=40, hop_length=320, win_length=640)
-
-        x.append(mfcc.reshape((1, 40, 51)))
-        y.append(class_index["unknown"])
-
-    n_silence = n // 10
-    zero_mfcc = librosa.feature.mfcc(np.zeros(16000), sr=16000, n_mfcc=40, hop_length=320, win_length=640)
-    for _ in range(n_silence):
-        x.append(zero_mfcc.reshape((1, 40, 51)))
-        y.append(class_index["silence"])
-
-    return np.array(x), np.array(y)
+                assert RuntimeError("{} caused error.".format(tarinfo.name))
 
 
 tar_name = 'speech_commands_v0.01.tar.gz'
@@ -137,27 +83,21 @@ Path("test/").mkdir(parents=True, exist_ok=True)
 print("Extracting files from {} ...".format(tar_name))
 with tarfile.open(tar_name, 'r:gz') as tar:
     tar.extractall(path="train/", members=which_files(tar, "training"))
+    print("\tTrain files done.")
     tar.extractall(path="val/", members=which_files(tar, "validation"))
+    print("\tValidation files done.")
     tar.extractall(path="test/", members=which_files(tar, "testing"))
+    print("\tTest files done.")
 
-keywords.append('silence')
-keywords.append('unknown')
-class_name = {i:k for i, k in enumerate(keywords)}
-class_index = {k:i for i, k in enumerate(keywords)}
-
-print("Load train set ...")
-x_train, y_train = load_set("train/", class_index)
-print("Load validation set ...")
-x_val, y_val = load_set("val/", class_index)
-print("Load test set ...")
-x_test, y_test = load_set("test/", class_index)
-
-data = {"train": (x_train, y_train),
-        "val": (x_val, y_val),
-        "test": (x_test, y_test)}
-
-print("Write dataset to {} ...".format("speech_commands.p"))
-with open("speech_commands.p", "wb") as p_file:
-    pickle.dump((data, class_name), p_file)
-
-print("Done.")
+print("\nCreate silence folders and silence files ...")
+sr = 16000
+for folder in ["train/silence/", "val/silence/", "test/silence/"]:
+    Path(folder).mkdir(exist_ok=True)
+    with wave.open(folder + 'silence.wav', 'w') as wavfile:
+        wavfile.setnchannels(1)
+        wavfile.setframerate(sr)
+        wavfile.setsampwidth(2)
+        for i in range(sr):
+            data = struct.pack('<h', 0)
+            wavfile.writeframesraw(data)
+print("\tDone.")
