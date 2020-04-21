@@ -1,0 +1,4 @@
+speech_commands*.tar.gz
+test/
+train/
+val/
