@@ -41,7 +41,7 @@ class MobileInvertedResidualBlock(MyModule):
 
     @property
     def module_str(self):
-        return '(%s, %s)' % (
+        return '(Conv: %s, Shortcut: %s)' % (
             self.mobile_inverted_conv.module_str, self.shortcut.module_str if self.shortcut is not None else None
         )
 

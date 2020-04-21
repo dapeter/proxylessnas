@@ -22,10 +22,9 @@ class SuperProxylessNASNets(ProxylessNASNets):
         for i in range(len(width_stages)):
             width_stages[i] = make_divisible(width_stages[i] * width_mult, 8)
 
-        # TODO change input channel size according to dataset
         # first conv layer
         first_conv = ConvLayer(
-            1, input_channel, kernel_size=3, stride=2, use_bn=True, act_func='relu6', ops_order='weight_bn_act'
+            1, input_channel, kernel_size=(5, 11), stride=(1, 2), use_bn=True, act_func='relu6', ops_order='weight_bn_act'
         )
 
         # first block
@@ -64,7 +63,7 @@ class SuperProxylessNASNets(ProxylessNASNets):
                 input_channel = width
 
         # feature mix layer
-        last_channel = make_divisible(1280 * width_mult, 8) if width_mult > 1.0 else 1280
+        last_channel = make_divisible(160 * width_mult, 8)
         feature_mix_layer = ConvLayer(
             input_channel, last_channel, kernel_size=1, use_bn=True, act_func='relu6', ops_order='weight_bn_act',
         )

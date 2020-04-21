@@ -139,6 +139,7 @@ class ConvLayer(My2DLayer):
         if isinstance(padding, int):
             padding *= self.dilation
         else:
+            padding = list(padding)
             padding[0] *= self.dilation
             padding[1] *= self.dilation
 
@@ -488,7 +489,9 @@ class MBInvertedConvLayer(MyModule):
 
     @property
     def module_str(self):
-        return '%dx%d_MBConv%d' % (self.kernel_size, self.kernel_size, self.expand_ratio)
+        return '%dx%d_MBConv%d [Ch_in=%d, Ch_out=%d, stride=%d] ' % (self.kernel_size, self.kernel_size,
+                                                                     self.expand_ratio, self.in_channels,
+                                                                     self.out_channels, self.stride)
 
     @property
     def config(self):

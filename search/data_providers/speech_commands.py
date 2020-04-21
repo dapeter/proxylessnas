@@ -44,7 +44,7 @@ class SpeechCommandsDataProvider(DataProvider):
     # TODO change width
     @property
     def data_shape(self):
-        return 1, 40, 51  # C, H, W
+        return 1, 10, 51  # C, H, W
 
     # TODO add silence
     @property

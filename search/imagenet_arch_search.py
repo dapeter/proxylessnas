@@ -61,9 +61,9 @@ parser.add_argument('--resize_scale', type=float, default=0.08)
 parser.add_argument('--distort_color', type=str, default='normal', choices=['normal', 'strong', 'None'])
 
 """ net config """
-parser.add_argument('--width_stages', type=str, default='24,40,80,96,192,320')
-parser.add_argument('--n_cell_stages', type=str, default='4,4,4,4,4,1')
-parser.add_argument('--stride_stages', type=str, default='2,2,2,1,2,1')
+parser.add_argument('--width_stages', type=str, default='24,32,64,96')
+parser.add_argument('--n_cell_stages', type=str, default='4,4,4,1')
+parser.add_argument('--stride_stages', type=str, default='2,1,1,1')
 parser.add_argument('--width_mult', type=float, default=1.0)
 parser.add_argument('--bn_momentum', type=float, default=0.1)
 parser.add_argument('--bn_eps', type=float, default=1e-3)
