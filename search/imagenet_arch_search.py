@@ -28,8 +28,9 @@ ref_values = {
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--path', type=str, default=None)
+parser.add_argument('--warmup_path', type=str, default=None)
 parser.add_argument('--gpu', help='gpu available', default='0,1,2,3')
-parser.add_argument('--resume', action='store_true')
+#parser.add_argument('--resume', action='store_true')
 parser.add_argument('--debug', help='freeze the weight parameters', action='store_true')
 parser.add_argument('--manual_seed', default=0, type=int)
 
@@ -191,26 +192,29 @@ if __name__ == '__main__':
     # arch search run manager
     arch_search_run_manager = ArchSearchRunManager(args.path, super_net, run_config, arch_search_config)
 
-    # resume
-    if args.resume:
-        try:
-            arch_search_run_manager.load_model()
-        except Exception:
-            from pathlib import Path
-            home = str(Path.home())
-            warmup_path = os.path.join(
-                home, 'Workspace/Exp/arch_search/%s_ProxylessNAS_%.2f_%s/warmup.pth.tar' %
-                      (run_config.dataset, args.width_mult, width_stages_str)
-            )
-            if os.path.exists(warmup_path):
-                print('load warmup weights')
-                arch_search_run_manager.load_model(model_fname=warmup_path)
-            else:
-                print('fail to load models')
+    # # resume
+    # if args.resume:
+    #     try:
+    #         arch_search_run_manager.load_model()
+    #     except Exception:
+    #         from pathlib import Path
+    #         home = str(Path.home())
+    #         warmup_path = os.path.join(
+    #             home, 'Workspace/Exp/arch_search/%s_ProxylessNAS_%.2f_%s/warmup.pth.tar' %
+    #                   (run_config.dataset, args.width_mult, width_stages_str)
+    #         )
+    #         if os.path.exists(warmup_path):
+    #             print('load warmup weights')
+    #             arch_search_run_manager.load_model(model_fname=warmup_path)
+    #         else:
+    #             print('fail to load models')
 
     # warmup
-    if arch_search_run_manager.warmup:
-        arch_search_run_manager.warm_up(warmup_epochs=args.warmup_epochs)
+    if args.warmup_path:
+        arch_search_run_manager.load_model(model_fname=args.warmup_path)
+    else:
+        if arch_search_run_manager.warmup:
+            arch_search_run_manager.warm_up(warmup_epochs=args.warmup_epochs)
 
     # joint training
     arch_search_run_manager.train(fix_net_weights=args.debug)
