@@ -28,22 +28,21 @@ ref_values = {
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--path', type=str, default=None)
-parser.add_argument('--warmup_path', type=str, default=None)
 parser.add_argument('--gpu', help='gpu available', default='0,1,2,3')
-#parser.add_argument('--resume', action='store_true')
+parser.add_argument('--resume', action='store_true')
 parser.add_argument('--debug', help='freeze the weight parameters', action='store_true')
 parser.add_argument('--manual_seed', default=0, type=int)
 
 """ run config """
 parser.add_argument('--n_epochs', type=int, default=120)
-parser.add_argument('--init_lr', type=float, default=0.025)
+parser.add_argument('--init_lr', type=float, default=0.2)
 parser.add_argument('--lr_schedule_type', type=str, default='cosine')
 # lr_schedule_param
 
-parser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet', 'speech_commands'])
-parser.add_argument('--train_batch_size', type=int, default=256)
-parser.add_argument('--test_batch_size', type=int, default=1000)
-parser.add_argument('--valid_size', type=int, default=50000)
+parser.add_argument('--dataset', type=str, default='speech_commands', choices=['imagenet', 'speech_commands'])
+parser.add_argument('--train_batch_size', type=int, default=100)
+parser.add_argument('--test_batch_size', type=int, default=100)
+parser.add_argument('--valid_size', type=int, default=None)
 
 parser.add_argument('--opt_type', type=str, default='sgd', choices=['sgd'])
 parser.add_argument('--momentum', type=float, default=0.9)  # opt_param
@@ -57,12 +56,12 @@ parser.add_argument('--init_div_groups', action='store_true')
 parser.add_argument('--validation_frequency', type=int, default=1)
 parser.add_argument('--print_frequency', type=int, default=10)
 
-parser.add_argument('--n_worker', type=int, default=32)
+parser.add_argument('--n_worker', type=int, default=4)
 parser.add_argument('--resize_scale', type=float, default=0.08)
 parser.add_argument('--distort_color', type=str, default='normal', choices=['normal', 'strong', 'None'])
 
 """ net config """
-parser.add_argument('--width_stages', type=str, default='24,32,64,96')
+parser.add_argument('--width_stages', type=str, default='24,40,80,112')
 parser.add_argument('--n_cell_stages', type=str, default='4,4,4,1')
 parser.add_argument('--stride_stages', type=str, default='2,1,1,1')
 parser.add_argument('--width_mult', type=float, default=1.0)
@@ -142,9 +141,9 @@ if __name__ == '__main__':
     args.n_cell_stages = [int(val) for val in args.n_cell_stages.split(',')]
     args.stride_stages = [int(val) for val in args.stride_stages.split(',')]
     args.conv_candidates = [
-        '3x3_MBConv3', '3x3_MBConv6',
-        '5x5_MBConv3', '5x5_MBConv6',
-        '7x7_MBConv3', '7x7_MBConv6',
+        '3x3_MBConv1', '3x3_MBConv2', '3x3_MBConv3', '3x3_MBConv4', '3x3_MBConv5', '3x3_MBConv6',
+        '5x5_MBConv1', '5x5_MBConv2', '5x5_MBConv3', '5x5_MBConv4', '5x5_MBConv5', '5x5_MBConv6',
+        '7x7_MBConv1', '7x7_MBConv2', '7x7_MBConv3', '7x7_MBConv4', '7x7_MBConv5', '7x7_MBConv6',
     ]
     super_net = SuperProxylessNASNets(
         width_stages=args.width_stages, n_cell_stages=args.n_cell_stages, stride_stages=args.stride_stages,
@@ -192,29 +191,26 @@ if __name__ == '__main__':
     # arch search run manager
     arch_search_run_manager = ArchSearchRunManager(args.path, super_net, run_config, arch_search_config)
 
-    # # resume
-    # if args.resume:
-    #     try:
-    #         arch_search_run_manager.load_model()
-    #     except Exception:
-    #         from pathlib import Path
-    #         home = str(Path.home())
-    #         warmup_path = os.path.join(
-    #             home, 'Workspace/Exp/arch_search/%s_ProxylessNAS_%.2f_%s/warmup.pth.tar' %
-    #                   (run_config.dataset, args.width_mult, width_stages_str)
-    #         )
-    #         if os.path.exists(warmup_path):
-    #             print('load warmup weights')
-    #             arch_search_run_manager.load_model(model_fname=warmup_path)
-    #         else:
-    #             print('fail to load models')
+    # resume
+    if args.resume:
+        try:
+            arch_search_run_manager.load_model()
+        except Exception:
+            from pathlib import Path
+            home = str(Path.home())
+            warmup_path = os.path.join(
+                home, 'Workspace/Exp/arch_search/%s_ProxylessNAS_%.2f_%s/warmup.pth.tar' %
+                      (run_config.dataset, args.width_mult, width_stages_str)
+            )
+            if os.path.exists(warmup_path):
+                print('load warmup weights')
+                arch_search_run_manager.load_model(model_fname=warmup_path)
+            else:
+                print('fail to load models')
 
     # warmup
-    if args.warmup_path:
-        arch_search_run_manager.load_model(model_fname=args.warmup_path)
-    else:
-        if arch_search_run_manager.warmup:
-            arch_search_run_manager.warm_up(warmup_epochs=args.warmup_epochs)
+    if arch_search_run_manager.warmup:
+        arch_search_run_manager.warm_up(warmup_epochs=args.warmup_epochs)
 
     # joint training
     arch_search_run_manager.train(fix_net_weights=args.debug)

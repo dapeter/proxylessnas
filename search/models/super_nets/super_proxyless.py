@@ -63,7 +63,7 @@ class SuperProxylessNASNets(ProxylessNASNets):
                 input_channel = width
 
         # feature mix layer
-        last_channel = make_divisible(160 * width_mult, 8)
+        last_channel = make_divisible(192 * width_mult, 8)
         feature_mix_layer = ConvLayer(
             input_channel, last_channel, kernel_size=1, use_bn=True, act_func='relu6', ops_order='weight_bn_act',
         )
