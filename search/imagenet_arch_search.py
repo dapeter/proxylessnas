@@ -8,24 +8,6 @@ from models import ImagenetRunConfig, SpeechCommandsRunConfig
 from nas_manager import *
 from models.super_nets.super_proxyless import SuperProxylessNASNets
 
-# ref values
-ref_values = {
-    'flops': {
-        '0.35': 59 * 1e6,
-        '0.50': 97 * 1e6,
-        '0.75': 209 * 1e6,
-        '1.00': 300 * 1e6,
-        '1.30': 509 * 1e6,
-        '1.40': 582 * 1e6,
-    },
-    # ms
-    'mobile': {
-        '1.00': 80,
-    },
-    'cpu': {},
-    'gpu8': {},
-}
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--path', type=str, default=None)
 parser.add_argument('--gpu', help='gpu available', default='0,1,2,3')
@@ -61,9 +43,9 @@ parser.add_argument('--resize_scale', type=float, default=0.08)
 parser.add_argument('--distort_color', type=str, default='normal', choices=['normal', 'strong', 'None'])
 
 """ net config """
-parser.add_argument('--width_stages', type=str, default='24,40,80,112')
-parser.add_argument('--n_cell_stages', type=str, default='4,4,4,1')
-parser.add_argument('--stride_stages', type=str, default='2,1,1,1')
+parser.add_argument('--width_stages', type=str, default='72')
+parser.add_argument('--n_cell_stages', type=str, default='12')
+parser.add_argument('--stride_stages', type=str, default='2')
 parser.add_argument('--width_mult', type=float, default=1.0)
 parser.add_argument('--bn_momentum', type=float, default=0.1)
 parser.add_argument('--bn_eps', type=float, default=1e-3)
@@ -82,7 +64,9 @@ parser.add_argument('--arch_adam_beta1', type=float, default=0)  # arch_opt_para
 parser.add_argument('--arch_adam_beta2', type=float, default=0.999)  # arch_opt_param
 parser.add_argument('--arch_adam_eps', type=float, default=1e-8)  # arch_opt_param
 parser.add_argument('--arch_weight_decay', type=float, default=0)
-parser.add_argument('--target_hardware', type=str, default=None, choices=['mobile', 'cpu', 'gpu8', 'flops', None])
+parser.add_argument('--target_hardware', type=str, default=None, choices=['mem', 'flops', None])
+parser.add_argument('--flops_ref_value', type=float, default=100e6)  # num ops
+parser.add_argument('--mem_ref_value', type=float, default=1000e3)  # num bytes
 """ Grad hyper-parameters """
 parser.add_argument('--grad_update_arch_param_every', type=int, default=5)
 parser.add_argument('--grad_update_steps', type=int, default=1)
@@ -162,7 +146,12 @@ if __name__ == '__main__':
     if args.target_hardware is None:
         args.ref_value = None
     else:
-        args.ref_value = ref_values[args.target_hardware]['%.2f' % args.width_mult]
+        if args.target_hardware == 'flops':
+            args.ref_value = args.flops_ref_value
+        elif args.target_hardware == 'mem':
+            args.ref_value = args.mem_ref_value
+        else:
+            raise AttributeError
     if args.arch_algo == 'grad':
         from nas_manager import GradientArchSearchConfig
         if args.grad_reg_loss_type == 'add#linear':

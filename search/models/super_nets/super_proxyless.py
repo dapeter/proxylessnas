@@ -17,8 +17,8 @@ class SuperProxylessNASNets(ProxylessNASNets):
         self._redundant_modules = None
         self._unused_modules = None
 
-        input_channel = make_divisible(32 * width_mult, 8)
-        first_cell_width = make_divisible(16 * width_mult, 8)
+        input_channel = make_divisible(72 * width_mult, 8)
+        #first_cell_width = make_divisible(72 * width_mult, 8)
         for i in range(len(width_stages)):
             width_stages[i] = make_divisible(width_stages[i] * width_mult, 8)
 
@@ -28,17 +28,18 @@ class SuperProxylessNASNets(ProxylessNASNets):
         )
 
         # first block
-        first_block_conv = MixedEdge(candidate_ops=build_candidate_ops(
-            ['3x3_MBConv1'],
-            input_channel, first_cell_width, 1, 'weight_bn_act',
-        ), )
-        if first_block_conv.n_choices == 1:
-            first_block_conv = first_block_conv.candidate_ops[0]
-        first_block = MobileInvertedResidualBlock(first_block_conv, None)
-        input_channel = first_cell_width
+        #first_block_conv = MixedEdge(candidate_ops=build_candidate_ops(
+        #    ['3x3_MBConv1'],
+        #    input_channel, first_cell_width, 1, 'weight_bn_act',
+        #), )
+        #if first_block_conv.n_choices == 1:
+        #    first_block_conv = first_block_conv.candidate_ops[0]
+        #first_block = MobileInvertedResidualBlock(first_block_conv, None)
+        #input_channel = first_cell_width
 
         # blocks
-        blocks = [first_block]
+        #blocks = [first_block]
+        blocks = []
         for width, n_cell, s in zip(width_stages, n_cell_stages, stride_stages):
             for i in range(n_cell):
                 if i == 0:
@@ -63,7 +64,7 @@ class SuperProxylessNASNets(ProxylessNASNets):
                 input_channel = width
 
         # feature mix layer
-        last_channel = make_divisible(192 * width_mult, 8)
+        last_channel = make_divisible(144 * width_mult, 8)
         feature_mix_layer = ConvLayer(
             input_channel, last_channel, kernel_size=1, use_bn=True, act_func='relu6', ops_order='weight_bn_act',
         )
