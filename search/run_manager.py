@@ -180,7 +180,7 @@ class RunManager:
 
         # a copy of net on cpu for latency estimation & mobile latency model
         self.net_on_cpu_for_latency = copy.deepcopy(self.net).cpu()
-        self.latency_estimator = LatencyEstimator()
+        self.latency_estimator = None # LatencyEstimator()
 
         # move network to GPU if available
         if torch.cuda.is_available():

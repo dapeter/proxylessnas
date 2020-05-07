@@ -1,32 +1,37 @@
 #!/bin/bash
 #SBATCH --job-name=pless
-#SBATCH --gres=gpu:TeslaK40c:1
-#SBATCH --partition=gpu,gpu2,gpu6
-#SBATCH --mem=8G
-#SBATCH --cpus-per-task=4
+#SBATCH --output=slurm_out/pless_%A_%a.out
+#SBATCH --error=slurm_out/pless_%A_%a.err
+#SBATCH --gres=gpu
+#SBATCH --partition=gpu
+#SBATCH --mem=16G
+#SBATCH --cpus-per-task=2
+#SBATCH --array=0-16:1
+
+PARRAY=(0.5 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
 
 #################
 # configuration #
 #################
 
 # overwrite home directory for clean environment
-export HOME="/srv/tmp/${USER}" # SSD on your workstation
+export HOME="/clusterFS/home/student/${USER}"
 
 # miniconda base dir
 _conda_base_dir="${HOME}"
 
 # conda python environment to use
-_conda_env="cuda10.0_p3.7"
+_conda_env="cuda10.1_p3.8"
 
 # python version to use
-_conda_python_version="3.7"
+_conda_python_version="3.8"
 
 # python packages to install:
 # conda packages
-_conda_install_packages="numpy matplotlib pillow=6.2.1 tqdm pyyaml cudatoolkit=10.0 cudnn pytorch torchvision"
+_conda_install_packages="numpy matplotlib pillow tqdm pyyaml yaml"
 # conda packages from a conda-channel (list of <channel>:<package>)
 #_conda_channel_install_packages="conda-forge:matplotlib2tikz anaconda:cudatoolkit=10.0 anaconda:cudnn anaconda:tensorflow-gpu anaconda:cupti"
-_conda_channel_install_packages="conda-forge:librosa"
+_conda_channel_install_packages="pytorch:pytorch pytorch:cudatoolkit=10.1 pytorch:torchvision pytorch:torchaudio"
 
 ########################
 # code for environment #
@@ -102,7 +107,9 @@ echo "HOSTNAME=${HOSTNAME}"
 
 echo -e "\n\nRUN: search\n"
 cd search
-python imagenet_arch_search.py --path proxyless_test --dataset speech_commands --width_stages "32,64" --n_cell_stages "2,2" --stride_stages "2,1" --init_lr 0.1
+sleep $[ ( $RANDOM % 120 )  + 1 ]s
+#pless
+python imagenet_arch_search.py --path pless_${SLURM_ARRAY_TASK_ID} --dataset speech_commands --init_lr 1 --train_batch_size 100 --test_batch_size 100 --target_hardware "flops" --flops_ref_value 20e6 --n_worker 4 --gpu 0 --arch_lr 2e-3 --grad_reg_loss_alpha 1 --grad_reg_loss_beta ${PARRAY[$SLURM_ARRAY_TASK_ID]}
 
 ##################
 # END: user code #
