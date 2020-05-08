@@ -197,6 +197,8 @@ if __name__ == '__main__':
             else:
                 print('fail to load models')
 
+    #warmup_path = "/.../warmup.pth.tar"
+    #arch_search_run_manager.load_model(model_fname=warmup_path)
     # warmup
     if arch_search_run_manager.warmup:
         arch_search_run_manager.warm_up(warmup_epochs=args.warmup_epochs)
