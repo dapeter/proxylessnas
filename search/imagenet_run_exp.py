@@ -27,7 +27,7 @@ parser.add_argument('--init_lr', type=float, default=0.05)
 parser.add_argument('--lr_schedule_type', type=str, default='cosine')
 # lr_schedule_param
 
-parser.add_argument('--dataset', type=str, default='imagenet', choices=['imagenet'])
+parser.add_argument('--dataset', type=str, default='speech_commands', choices=['imagenet', 'speech_commands'])
 parser.add_argument('--train_batch_size', type=int, default=256)
 parser.add_argument('--test_batch_size', type=int, default=500)
 parser.add_argument('--valid_size', type=int, default=None)
@@ -74,7 +74,12 @@ if __name__ == '__main__':
     if os.path.isfile(run_config_path):
         # load run config from file
         run_config = json.load(open(run_config_path, 'r'))
-        run_config = ImagenetRunConfig(**run_config)
+        if args.dataset == "speech_commands":
+            run_config = SpeechCommandsRunConfig(**run_config)
+        elif args.dataset == "imagenet":
+            run_config = ImagenetRunConfig(**run_config)
+        else:
+            raise NotImplementedError
         if args.valid_size:
             run_config.valid_size = args.valid_size
     else:
@@ -86,9 +91,16 @@ if __name__ == '__main__':
         }
         if args.no_decay_keys == 'None':
             args.no_decay_keys = None
-        run_config = ImagenetRunConfig(
-            **args.__dict__
-        )
+        if args.dataset == "speech_commands":
+            run_config = SpeechCommandsRunConfig(
+                **args.__dict__
+            )
+        elif args.dataset == "imagenet":
+            run_config = ImagenetRunConfig(
+                **args.__dict__
+            )
+        else:
+            raise NotImplementedError
     print('Run config:')
     for k, v in run_config.config.items():
         print('\t%s: %s' % (k, v))

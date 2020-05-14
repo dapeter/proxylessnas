@@ -28,7 +28,7 @@ def make_divisible(v, divisor, min_val=None):
 
 
 def get_same_padding(kernel_size):
-    if isinstance(kernel_size, tuple):
+    if isinstance(kernel_size, tuple) or isinstance(kernel_size, list):
         assert len(kernel_size) == 2, 'invalid kernel size: %s' % kernel_size
         p1 = get_same_padding(kernel_size[0])
         p2 = get_same_padding(kernel_size[1])
