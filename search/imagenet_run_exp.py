@@ -57,6 +57,14 @@ parser.add_argument(
 )
 parser.add_argument('--dropout', type=float, default=0)
 
+""" quantization config """
+parser.add_argument('--quantize', action='store_true')
+parser.add_argument('--n_bits', type=int, default=8)
+
+
+def quantize_state_dict(state_dict, n_bits):
+    return state_dict
+
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -162,7 +170,7 @@ if __name__ == '__main__':
     output_dict = {}
     # validate
     if run_config.valid_size:
-        print('Test on validation set')
+        print('Test model on validation set')
         loss, acc1, acc5 = run_manager.validate(is_test=False, return_top5=True)
         log = 'valid_loss: %f\t valid_acc1: %f\t valid_acc5: %f' % (loss, acc1, acc5)
         run_manager.write_log(log, prefix='valid')
@@ -173,7 +181,7 @@ if __name__ == '__main__':
         }
 
     # test
-    print('Test on test set')
+    print('Test model on test set')
     loss, acc1, acc5 = run_manager.validate(is_test=True, return_top5=True)
     log = 'test_loss: %f\t test_acc1: %f\t test_acc5: %f' % (loss, acc1, acc5)
     run_manager.write_log(log, prefix='test')
@@ -182,3 +190,45 @@ if __name__ == '__main__':
         'test_loss': '%f' % loss, 'test_acc1': '%f' % acc1, 'test_acc5': '%f' % acc5
     }
     json.dump(output_dict, open('%s/output' % args.path, 'w'), indent=4)
+
+    # load best model, quantize, validate and test
+    if args.quantize:
+        print("Using %s bits for quantization." % args.n_bits)
+        best_model_path = '%s/checkpoint/model_best.pth.tar' % args.path
+        if os.path.isfile(best_model_path):
+            if torch.cuda.is_available():
+                checkpoint = torch.load(init_path)
+            else:
+                checkpoint = torch.load(init_path, map_location='cpu')
+            if 'state_dict' in checkpoint:
+                checkpoint = checkpoint['state_dict']
+        else:
+            raise FileNotFoundError
+
+        # quantize model
+        checkpoint = quantize_state_dict(checkpoint, args.n_bits)
+        run_manager.net.module.load_state_dict(checkpoint)
+
+        output_dict = {}
+        # validate
+        if run_config.valid_size:
+            print('Test quantized model on validation set')
+            loss, acc1, acc5 = run_manager.validate(is_test=False, return_top5=True)
+            log = 'quant valid_loss: %f\t valid_acc1: %f\t valid_acc5: %f' % (loss, acc1, acc5)
+            run_manager.write_log(log, prefix='valid')
+            output_dict = {
+                **output_dict,
+                'valid_loss': ' % f' % loss, 'valid_acc1': ' % f' % acc1, 'valid_acc5': ' % f' % acc5,
+                'valid_size': run_config.valid_size
+            }
+
+        # test
+        print('Test quantized model on test set')
+        loss, acc1, acc5 = run_manager.validate(is_test=True, return_top5=True)
+        log = 'quant test_loss: %f\t test_acc1: %f\t test_acc5: %f' % (loss, acc1, acc5)
+        run_manager.write_log(log, prefix='test')
+        output_dict = {
+            **output_dict,
+            'test_loss': '%f' % loss, 'test_acc1': '%f' % acc1, 'test_acc5': '%f' % acc5
+        }
+        json.dump(output_dict, open('%s/output_quantized' % args.path, 'w'), indent=4)
