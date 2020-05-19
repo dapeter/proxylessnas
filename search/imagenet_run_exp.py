@@ -62,7 +62,84 @@ parser.add_argument('--quantize', action='store_true')
 parser.add_argument('--n_bits', type=int, default=8)
 
 
+# TODO
+def fold_batch_norm(state_dict):
+
+    param_names = ["conv.weight", "bn.weight", "bn.bias", "bn.running_mean", "bn.running_var"]
+    layers = {}
+    for state_key in state_dict.keys():
+        for param_name in param_names:
+            if state_key.endswith(param_name) and state_key not in layers.keys():
+                layers[state_key.split("." + param_name)[0]] = {}
+
+    for state_key, state_tensor in state_dict.items():
+        for param_name in param_names:
+            if state_key.endswith(param_name):
+                split_state = state_key.split(".")
+                layer_name = ".".join(split_state[:-2])
+                param_name = ".".join(split_state[-2:])
+                break
+        layers[layer_name][param_name] = state_tensor
+
+    for layer, params in layers.items():
+        if layer == "feature_mix_layer":
+            continue
+        for l in range(params["conv.weight"].shape[3]):
+            for k in range(params["conv.weight"].shape[2]):
+                for j in range(params["conv.weight"].shape[1]):
+                    for i in range(params["conv.weight"].shape[0]):
+                            params["conv.weight"][i][j][k][l] *= params["bn.weight"][i] / np.sqrt(params["bn.running_var"])
+
+        for i in range(params["bn.bias"].shape[0]):
+            params["bn.bias"] -= params["bn.weight"][i] * params["bn.running_mean"][i] / np.sqrt(params["bn.running_var"])
+
+        # Reset
+        for i in range(params["bn.weight"].shape[0]):
+            params["bn.weight"][i] = 1
+        params["bn.running_var"] = 1
+        for i in range(params["bn.running_mean"].shape[0]):
+            params["bn.running_mean"][i] = 0
+
+    return state_dict
+
+
+# Taken from https://git.spsc.tugraz.at/wroth/nn-discrete-tf/
 def quantize_state_dict(state_dict, n_bits):
+    conv_weights = {k: v for k, v in state_dict.items() if k.endswith("conv.weight")}
+    for name, weight in conv_weights.items():
+        min_wt = weight.min()
+        max_wt = weight.max()
+        num_vals = 2.0 ** n_bits
+        step = 2.0 ** -n_bits
+        weight = (weight - min_wt) * (num_vals / (max_wt - min_wt))  # transform to [0,num_vals]
+        weight = torch.round(weight)
+        weight = torch.clamp(weight, 0, num_vals - 1.0)  # clip values
+        weight = weight * (step * (max_wt - min_wt)) + min_wt
+
+        state_dict[name] = weight
+
+    return state_dict
+
+
+# Taken from https://github.com/ARM-software/ML-KWS-for-MCU
+def quantize_state_dict_qmn(state_dict, n_bits):
+    conv_weights = { k: v for k, v in state_dict.items() if k.endswith("conv.weight")}
+    for name, weight in conv_weights.items():
+        min_wt = weight.min()
+        max_wt = weight.max()
+        # find number of integer bits to represent this range
+        int_bits = int(np.ceil(np.log2(max(abs(min_wt), abs(max_wt)))))
+        frac_bits = n_bits - int_bits - 1  # remaining bits are fractional bits (1-bit for sign)
+        assert frac_bits >= 0
+        # floating point weights are scaled and rounded, which are used in
+        # the fixed-point operations on the actual hardware (i.e., microcontroller)
+        quant_weight = np.round(weight * (2 ** frac_bits))
+        # To quantify the impact of quantized weights, scale them back to
+        # original range to run inference using quantized weights
+        quant_weight_float = quant_weight / (2 ** frac_bits)
+
+        state_dict[name] = quant_weight_float
+
     return state_dict
 
 
@@ -205,7 +282,8 @@ if __name__ == '__main__':
         else:
             raise FileNotFoundError
 
-        # quantize model
+        # fold batch norm and quantize model
+        #checkpoint = fold_batch_norm(checkpoint)
         checkpoint = quantize_state_dict(checkpoint, args.n_bits)
         run_manager.net.module.load_state_dict(checkpoint)
 
