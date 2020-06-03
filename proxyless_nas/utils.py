@@ -135,6 +135,9 @@ class AverageMeter(object):
 
 
 class BasicUnit(nn.Module):
+    def __init__(self):
+        super(BasicUnit, self).__init__()
+        raise NotImplementedError("Shouldn't use this.")
 
     def forward(self, x):
         raise NotImplementedError

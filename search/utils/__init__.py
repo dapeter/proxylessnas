@@ -5,6 +5,7 @@
 from utils.latency_estimator import *
 from utils.my_modules import *
 from utils.pytorch_utils import *
+from utils.ste import *
 
 
 def make_divisible(v, divisor, min_val=None):

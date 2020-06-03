@@ -10,40 +10,40 @@ import torch.nn.functional as F
 from modules.layers import *
 
 
-def build_candidate_ops(candidate_ops, in_channels, out_channels, stride, ops_order):
+def build_candidate_ops(candidate_ops, in_channels, out_channels, stride, ops_order, num_bits=None):
     if candidate_ops is None:
         raise ValueError('please specify a candidate set')
 
     name2ops = {
-        'Identity': lambda in_C, out_C, S: IdentityLayer(in_C, out_C, ops_order=ops_order),
-        'Zero': lambda in_C, out_C, S: ZeroLayer(stride=S),
+        'Identity': lambda in_C, out_C, S, num_bits: IdentityLayer(in_C, out_C, ops_order=ops_order),
+        'Zero': lambda in_C, out_C, S, num_bits: ZeroLayer(stride=S),
     }
     # add MBConv layers
     name2ops.update({
-        '3x3_MBConv1': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 3, S, 1),
-        '3x3_MBConv2': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 3, S, 2),
-        '3x3_MBConv3': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 3, S, 3),
-        '3x3_MBConv4': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 3, S, 4),
-        '3x3_MBConv5': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 3, S, 5),
-        '3x3_MBConv6': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 3, S, 6),
+        '3x3_MBConv1': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 3, S, 1, num_bits=num_bits),
+        '3x3_MBConv2': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 3, S, 2, num_bits=num_bits),
+        '3x3_MBConv3': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 3, S, 3, num_bits=num_bits),
+        '3x3_MBConv4': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 3, S, 4, num_bits=num_bits),
+        '3x3_MBConv5': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 3, S, 5, num_bits=num_bits),
+        '3x3_MBConv6': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 3, S, 6, num_bits=num_bits),
         #######################################################################################
-        '5x5_MBConv1': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 5, S, 1),
-        '5x5_MBConv2': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 5, S, 2),
-        '5x5_MBConv3': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 5, S, 3),
-        '5x5_MBConv4': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 5, S, 4),
-        '5x5_MBConv5': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 5, S, 5),
-        '5x5_MBConv6': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 5, S, 6),
+        '5x5_MBConv1': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 5, S, 1, num_bits=num_bits),
+        '5x5_MBConv2': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 5, S, 2, num_bits=num_bits),
+        '5x5_MBConv3': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 5, S, 3, num_bits=num_bits),
+        '5x5_MBConv4': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 5, S, 4, num_bits=num_bits),
+        '5x5_MBConv5': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 5, S, 5, num_bits=num_bits),
+        '5x5_MBConv6': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 5, S, 6, num_bits=num_bits),
         #######################################################################################
-        '7x7_MBConv1': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 7, S, 1),
-        '7x7_MBConv2': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 7, S, 2),
-        '7x7_MBConv3': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 7, S, 3),
-        '7x7_MBConv4': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 7, S, 4),
-        '7x7_MBConv5': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 7, S, 5),
-        '7x7_MBConv6': lambda in_C, out_C, S: MBInvertedConvLayer(in_C, out_C, 7, S, 6),
+        '7x7_MBConv1': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 7, S, 1, num_bits=num_bits),
+        '7x7_MBConv2': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 7, S, 2, num_bits=num_bits),
+        '7x7_MBConv3': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 7, S, 3, num_bits=num_bits),
+        '7x7_MBConv4': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 7, S, 4, num_bits=num_bits),
+        '7x7_MBConv5': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 7, S, 5, num_bits=num_bits),
+        '7x7_MBConv6': lambda in_C, out_C, S, num_bits: MBInvertedConvLayer(in_C, out_C, 7, S, 6, num_bits=num_bits),
     })
 
     return [
-        name2ops[name](in_channels, out_channels, stride) for name in candidate_ops
+        name2ops[name](in_channels, out_channels, stride, num_bits) for name in candidate_ops
     ]
 
 

@@ -4,6 +4,7 @@
 
 from utils import *
 from collections import OrderedDict
+from quantized_modules import *
 
 
 def set_layer_from_config(layer_config):
@@ -124,13 +125,14 @@ class ConvLayer(My2DLayer):
 
     def __init__(self, in_channels, out_channels,
                  kernel_size=3, stride=1, dilation=1, groups=1, bias=False, has_shuffle=False,
-                 use_bn=True, act_func='relu', dropout_rate=0, ops_order='weight_bn_act'):
+                 use_bn=True, act_func='relu', dropout_rate=0, ops_order='weight_bn_act', num_bits=None):
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
         self.groups = groups
         self.bias = bias
         self.has_shuffle = has_shuffle
+        self.num_bits = num_bits
 
         super(ConvLayer, self).__init__(in_channels, out_channels, use_bn, act_func, dropout_rate, ops_order)
 
@@ -144,9 +146,9 @@ class ConvLayer(My2DLayer):
             padding[1] *= self.dilation
 
         weight_dict = OrderedDict()
-        weight_dict['conv'] = nn.Conv2d(
+        weight_dict['conv'] = QConv2d(
             self.in_channels, self.out_channels, kernel_size=self.kernel_size, stride=self.stride, padding=padding,
-            dilation=self.dilation, groups=self.groups, bias=self.bias
+            dilation=self.dilation, groups=self.groups, bias=self.bias, num_bits=self.num_bits
         )
         if self.has_shuffle and self.groups > 1:
             weight_dict['shuffle'] = ShuffleLayer(self.groups)
@@ -180,6 +182,7 @@ class ConvLayer(My2DLayer):
             'groups': self.groups,
             'bias': self.bias,
             'has_shuffle': self.has_shuffle,
+            'num_bits': self.num_bits,
             **super(ConvLayer, self).config,
         }
 
@@ -195,13 +198,14 @@ class DepthConvLayer(My2DLayer):
 
     def __init__(self, in_channels, out_channels,
                  kernel_size=3, stride=1, dilation=1, groups=1, bias=False, has_shuffle=False,
-                 use_bn=True, act_func='relu', dropout_rate=0, ops_order='weight_bn_act'):
+                 use_bn=True, act_func='relu', dropout_rate=0, ops_order='weight_bn_act', num_bits=None):
         self.kernel_size = kernel_size
         self.stride = stride
         self.dilation = dilation
         self.groups = groups
         self.bias = bias
         self.has_shuffle = has_shuffle
+        self.num_bits = num_bits
 
         super(DepthConvLayer, self).__init__(
             in_channels, out_channels, use_bn, act_func, dropout_rate, ops_order
@@ -216,12 +220,12 @@ class DepthConvLayer(My2DLayer):
             padding[1] *= self.dilation
 
         weight_dict = OrderedDict()
-        weight_dict['depth_conv'] = nn.Conv2d(
+        weight_dict['depth_conv'] = QConv2d(
             self.in_channels, self.in_channels, kernel_size=self.kernel_size, stride=self.stride, padding=padding,
-            dilation=self.dilation, groups=self.in_channels, bias=False
+            dilation=self.dilation, groups=self.in_channels, bias=False, num_bits=self.num_bits
         )
-        weight_dict['point_conv'] = nn.Conv2d(
-            self.in_channels, self.out_channels, kernel_size=1, groups=self.groups, bias=self.bias
+        weight_dict['point_conv'] = QConv2d(
+            self.in_channels, self.out_channels, kernel_size=1, groups=self.groups, bias=self.bias, num_bits=self.num_bits
         )
         if self.has_shuffle and self.groups > 1:
             weight_dict['shuffle'] = ShuffleLayer(self.groups)
@@ -248,6 +252,7 @@ class DepthConvLayer(My2DLayer):
             'groups': self.groups,
             'bias': self.bias,
             'has_shuffle': self.has_shuffle,
+            'num_bits': self.num_bits,
             **super(DepthConvLayer, self).config,
         }
 
@@ -349,7 +354,7 @@ class IdentityLayer(My2DLayer):
 class LinearLayer(MyModule):
 
     def __init__(self, in_features, out_features, bias=True,
-                 use_bn=False, act_func=None, dropout_rate=0, ops_order='weight_bn_act'):
+                 use_bn=False, act_func=None, dropout_rate=0, ops_order='weight_bn_act', num_bits=None):
         super(LinearLayer, self).__init__()
 
         self.in_features = in_features
@@ -360,6 +365,8 @@ class LinearLayer(MyModule):
         self.act_func = act_func
         self.dropout_rate = dropout_rate
         self.ops_order = ops_order
+
+        self.num_bits = num_bits
 
         """ modules """
         modules = {}
@@ -379,7 +386,7 @@ class LinearLayer(MyModule):
         else:
             modules['dropout'] = None
         # linear
-        modules['weight'] = {'linear': nn.Linear(self.in_features, self.out_features, self.bias)}
+        modules['weight'] = {'linear': QLinear(self.in_features, self.out_features, self.bias, num_bits=self.num_bits)}
 
         # add modules
         for op in self.ops_list:
@@ -426,6 +433,7 @@ class LinearLayer(MyModule):
             'act_func': self.act_func,
             'dropout_rate': self.dropout_rate,
             'ops_order': self.ops_order,
+            'num_bits': self.num_bits,
         }
 
     @staticmethod
@@ -443,7 +451,7 @@ class LinearLayer(MyModule):
 class MBInvertedConvLayer(MyModule):
 
     def __init__(self, in_channels, out_channels,
-                 kernel_size=3, stride=1, expand_ratio=6, mid_channels=None):
+                 kernel_size=3, stride=1, expand_ratio=6, mid_channels=None, num_bits=None):
         super(MBInvertedConvLayer, self).__init__()
 
         self.in_channels = in_channels
@@ -454,6 +462,8 @@ class MBInvertedConvLayer(MyModule):
         self.expand_ratio = expand_ratio
         self.mid_channels = mid_channels
 
+        self.num_bits = num_bits
+
         if self.mid_channels is None:
             feature_dim = round(self.in_channels * self.expand_ratio)
         else:
@@ -463,20 +473,20 @@ class MBInvertedConvLayer(MyModule):
             self.inverted_bottleneck = None
         else:
             self.inverted_bottleneck = nn.Sequential(OrderedDict([
-                ('conv', nn.Conv2d(self.in_channels, feature_dim, 1, 1, 0, bias=False)),
+                ('conv', QConv2d(self.in_channels, feature_dim, 1, 1, 0, bias=False, num_bits=self.num_bits)),
                 ('bn', nn.BatchNorm2d(feature_dim)),
                 ('act', nn.ReLU6(inplace=True)),
             ]))
 
         pad = get_same_padding(self.kernel_size)
         self.depth_conv = nn.Sequential(OrderedDict([
-            ('conv', nn.Conv2d(feature_dim, feature_dim, kernel_size, stride, pad, groups=feature_dim, bias=False)),
+            ('conv', QConv2d(feature_dim, feature_dim, kernel_size, stride, pad, groups=feature_dim, bias=False, num_bits=self.num_bits)),
             ('bn', nn.BatchNorm2d(feature_dim)),
             ('act', nn.ReLU6(inplace=True)),
         ]))
 
         self.point_linear = nn.Sequential(OrderedDict([
-            ('conv', nn.Conv2d(feature_dim, out_channels, 1, 1, 0, bias=False)),
+            ('conv', QConv2d(feature_dim, out_channels, 1, 1, 0, bias=False, num_bits=self.num_bits)),
             ('bn', nn.BatchNorm2d(out_channels)),
         ]))
 
@@ -489,9 +499,9 @@ class MBInvertedConvLayer(MyModule):
 
     @property
     def module_str(self):
-        return '%dx%d_MBConv%d [Ch_in=%d, Ch_out=%d, stride=%d] ' % (self.kernel_size, self.kernel_size,
+        return '%dx%d_MBConv%d [Ch_in=%d, Ch_out=%d, stride=%d, num_bits=%d] ' % (self.kernel_size, self.kernel_size,
                                                                      self.expand_ratio, self.in_channels,
-                                                                     self.out_channels, self.stride)
+                                                                     self.out_channels, self.stride, self.num_bits)
 
     @property
     def config(self):
@@ -503,6 +513,7 @@ class MBInvertedConvLayer(MyModule):
             'stride': self.stride,
             'expand_ratio': self.expand_ratio,
             'mid_channels': self.mid_channels,
+            'num_bits': self.num_bits,
         }
 
     @staticmethod

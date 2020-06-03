@@ -13,7 +13,7 @@ from utils import LatencyEstimator
 class SuperProxylessNASNets(ProxylessNASNets):
 
     def __init__(self, width_stages, n_cell_stages, conv_candidates, stride_stages,
-                 n_classes=1000, width_mult=1, bn_param=(0.1, 1e-3), dropout_rate=0):
+                 n_classes=1000, width_mult=1, bn_param=(0.1, 1e-3), dropout_rate=0, num_bits=None):
         self._redundant_modules = None
         self._unused_modules = None
 
@@ -24,7 +24,7 @@ class SuperProxylessNASNets(ProxylessNASNets):
 
         # first conv layer
         first_conv = ConvLayer(
-            1, input_channel, kernel_size=(5, 11), stride=(1, 2), use_bn=True, act_func='relu6', ops_order='weight_bn_act'
+            1, input_channel, kernel_size=(5, 11), stride=(1, 2), use_bn=True, act_func='relu6', ops_order='weight_bn_act', num_bits=num_bits
         )
 
         # first block
@@ -52,7 +52,7 @@ class SuperProxylessNASNets(ProxylessNASNets):
                 else:
                     modified_conv_candidates = conv_candidates
                 conv_op = MixedEdge(candidate_ops=build_candidate_ops(
-                    modified_conv_candidates, input_channel, width, stride, 'weight_bn_act',
+                    modified_conv_candidates, input_channel, width, stride, 'weight_bn_act', num_bits=num_bits
                 ), )
                 # shortcut
                 if stride == 1 and input_channel == width:
@@ -66,10 +66,10 @@ class SuperProxylessNASNets(ProxylessNASNets):
         # feature mix layer
         last_channel = make_divisible(144 * width_mult, 8)
         feature_mix_layer = ConvLayer(
-            input_channel, last_channel, kernel_size=1, use_bn=True, act_func='relu6', ops_order='weight_bn_act',
+            input_channel, last_channel, kernel_size=1, use_bn=True, act_func='relu6', ops_order='weight_bn_act', num_bits=num_bits
         )
 
-        classifier = LinearLayer(last_channel, n_classes, dropout_rate=dropout_rate)
+        classifier = LinearLayer(last_channel, n_classes, dropout_rate=dropout_rate, num_bits=num_bits)
         super(SuperProxylessNASNets, self).__init__(first_conv, blocks, feature_mix_layer, classifier)
 
         # set bn param

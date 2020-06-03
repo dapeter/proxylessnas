@@ -50,6 +50,7 @@ parser.add_argument('--width_mult', type=float, default=1.0)
 parser.add_argument('--bn_momentum', type=float, default=0.1)
 parser.add_argument('--bn_eps', type=float, default=1e-3)
 parser.add_argument('--dropout', type=float, default=0)
+parser.add_argument('--weight_bits', type=int, default=None)
 
 # architecture search config
 """ arch search algo and warmup """
@@ -129,10 +130,11 @@ if __name__ == '__main__':
         '5x5_MBConv1', '5x5_MBConv2', '5x5_MBConv3', '5x5_MBConv4', '5x5_MBConv5', '5x5_MBConv6',
         '7x7_MBConv1', '7x7_MBConv2', '7x7_MBConv3', '7x7_MBConv4', '7x7_MBConv5', '7x7_MBConv6',
     ]
+    assert not args.weight_bits or 0 < args.weight_bits <= 8
     super_net = SuperProxylessNASNets(
         width_stages=args.width_stages, n_cell_stages=args.n_cell_stages, stride_stages=args.stride_stages,
         conv_candidates=args.conv_candidates, n_classes=run_config.data_provider.n_classes, width_mult=args.width_mult,
-        bn_param=(args.bn_momentum, args.bn_eps), dropout_rate=args.dropout
+        bn_param=(args.bn_momentum, args.bn_eps), dropout_rate=args.dropout, num_bits=args.weight_bits
     )
 
     # build arch search config from args
