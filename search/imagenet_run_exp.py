@@ -125,6 +125,7 @@ def quantize_state_dict(state_dict, n_bits):
 def quantize_state_dict_qmn(state_dict, n_bits):
     conv_weights = { k: v for k, v in state_dict.items() if k.endswith("conv.weight")}
     for name, weight in conv_weights.items():
+        weight = weight.cpu()
         min_wt = weight.min()
         max_wt = weight.max()
         # find number of integer bits to represent this range
@@ -214,7 +215,12 @@ if __name__ == '__main__':
     run_manager.save_config(print_info=True)
 
     # load checkpoints
-    init_path = '%s/init' % args.path
+    best_model_path = '%s/checkpoint/model_best.pth.tar' % args.path
+    if os.path.isfile(best_model_path):
+        init_path = best_model_path
+    else:
+        init_path = '%s/init' % args.path
+
     if args.resume:
         run_manager.load_model()
         if args.train and run_manager.best_acc == 0:
@@ -276,9 +282,9 @@ if __name__ == '__main__':
             best_model_path = '%s/checkpoint/model_best.pth.tar' % args.path
             if os.path.isfile(best_model_path):
                 if torch.cuda.is_available():
-                    checkpoint = torch.load(init_path)
+                    checkpoint = torch.load(best_model_path)
                 else:
-                    checkpoint = torch.load(init_path, map_location='cpu')
+                    checkpoint = torch.load(best_model_path, map_location='cpu')
                 if 'state_dict' in checkpoint:
                     checkpoint = checkpoint['state_dict']
             else:
@@ -286,7 +292,7 @@ if __name__ == '__main__':
 
             # fold batch norm and quantize model
             #checkpoint = fold_batch_norm(checkpoint)
-            checkpoint = quantize_state_dict(checkpoint, n_bits)
+            checkpoint = quantize_state_dict_qmn(checkpoint, n_bits)
             run_manager.net.module.load_state_dict(checkpoint)
 
             output_dict = {}
@@ -311,4 +317,4 @@ if __name__ == '__main__':
                 **output_dict,
                 'test_loss': '%f' % loss, 'test_acc1': '%f' % acc1, 'test_acc5': '%f' % acc5
             }
-            json.dump(output_dict, open('%s/output_quantized_%d_bit' % (args.path, n_bits), 'w'), indent=4)
+            json.dump(output_dict, open('%s/output_quantized_%d_bit_qmn' % (args.path, n_bits), 'w'), indent=4)
