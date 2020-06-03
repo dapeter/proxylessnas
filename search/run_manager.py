@@ -477,6 +477,8 @@ class RunManager:
         top1 = AverageMeter()
         top5 = AverageMeter()
 
+        confusion_matrix = torch.zeros(12, 12)
+
         end = time.time()
         # noinspection PyUnresolvedReferences
         with torch.no_grad():
@@ -491,6 +493,11 @@ class RunManager:
                 losses.update(loss, images.size(0))
                 top1.update(acc1[0], images.size(0))
                 top5.update(acc5[0], images.size(0))
+                # compute confusion matrix
+                _, preds = torch.max(output, 1)
+                for t, p in zip(labels.view(-1), preds.view(-1)):
+                    confusion_matrix[t.long(), p.long()] += 1
+                class_accuracy = 100 * confusion_matrix.diagonal() / confusion_matrix.sum(1)
                 # measure elapsed time
                 batch_time.update(time.time() - end)
                 end = time.time()
@@ -508,6 +515,14 @@ class RunManager:
                     if return_top5:
                         test_log += '\tTop-5 acc {top5.val:.3f} ({top5.avg:.3f})'.format(top5=top5)
                     print(test_log)
+        print("Confusion matrix:")
+        print(confusion_matrix.numpy())
+        classes = ['yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go', 'silence', 'unknown']  # See SpeechCommandsFolder class
+        class_acc = ""
+        for c, a in zip(classes, class_accuracy.tolist()):
+            class_acc += "\t{0}: {1:.2f} %\n".format(c, a)
+        class_acc = class_acc[:-1]
+        print("Class accuracies:\n" + class_acc)
         if return_top5:
             return losses.avg, top1.avg, top5.avg
         else:
