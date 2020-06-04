@@ -4,7 +4,7 @@
 
 from utils import *
 from collections import OrderedDict
-from quantized_modules import *
+from .quantized_modules import *
 
 
 def set_layer_from_config(layer_config):
