@@ -499,14 +499,18 @@ class MBInvertedConvLayer(MyModule):
 
     @property
     def module_str(self):
-        if not self.num_bits:
-            return '%dx%d_MBConv%d [Ch_in=%d, Ch_out=%d, stride=%d]' % (self.kernel_size, self.kernel_size,
-                                                                         self.expand_ratio, self.in_channels,
-                                                                         self.out_channels, self.stride)
+        if type(self.stride) is tuple:
+            stride = '(' + ','.join([str(s) for s in self.stride]) + ')'
         else:
-            return '%dx%d_MBConv%d [Ch_in=%d, Ch_out=%d, stride=%d, num_bits=%d]' % (self.kernel_size, self.kernel_size,
+            stride = self.stride
+        if not self.num_bits:
+            return '%dx%d_MBConv%d [Ch_in=%d, Ch_out=%d, stride=%s]' % (self.kernel_size, self.kernel_size,
+                                                                         self.expand_ratio, self.in_channels,
+                                                                         self.out_channels, stride)
+        else:
+            return '%dx%d_MBConv%d [Ch_in=%d, Ch_out=%d, stride=%s, num_bits=%d]' % (self.kernel_size, self.kernel_size,
                                                                         self.expand_ratio, self.in_channels,
-                                                                        self.out_channels, self.stride, self.num_bits)
+                                                                        self.out_channels, stride, self.num_bits)
 
     @property
     def config(self):

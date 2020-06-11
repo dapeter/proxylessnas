@@ -3,6 +3,7 @@
 # International Conference on Learning Representations (ICLR), 2019.
 
 import argparse
+import re
 
 from models import ImagenetRunConfig, SpeechCommandsRunConfig
 from nas_manager import *
@@ -43,9 +44,9 @@ parser.add_argument('--resize_scale', type=float, default=0.08)
 parser.add_argument('--distort_color', type=str, default='normal', choices=['normal', 'strong', 'None'])
 
 """ net config """
-parser.add_argument('--width_stages', type=str, default='72')
-parser.add_argument('--n_cell_stages', type=str, default='12')
-parser.add_argument('--stride_stages', type=str, default='2')
+parser.add_argument('--width_stages', type=str, default='16,32,64')
+parser.add_argument('--n_cell_stages', type=str, default='1,6,1')
+parser.add_argument('--stride_stages', type=str, default='(1,2),2,1')
 parser.add_argument('--width_mult', type=float, default=1.0)
 parser.add_argument('--bn_momentum', type=float, default=0.1)
 parser.add_argument('--bn_eps', type=float, default=1e-3)
@@ -124,11 +125,13 @@ if __name__ == '__main__':
     # build net from args
     args.width_stages = [int(val) for val in args.width_stages.split(',')]
     args.n_cell_stages = [int(val) for val in args.n_cell_stages.split(',')]
-    args.stride_stages = [int(val) for val in args.stride_stages.split(',')]
+    args.stride_stages = re.split(r'[)][,]|[,][(]|[(]|[)]|[,](?![0-9][)])', args.stride_stages)
+    args.stride_stages.remove('')
+    args.stride_stages = [tuple([int(v) for v in val.split(',')]) if len(val) > 1 else int(val) for val in args.stride_stages]
     args.conv_candidates = [
-        '3x3_MBConv1', '3x3_MBConv2', '3x3_MBConv3', '3x3_MBConv4', '3x3_MBConv5', '3x3_MBConv6',
-        '5x5_MBConv1', '5x5_MBConv2', '5x5_MBConv3', '5x5_MBConv4', '5x5_MBConv5', '5x5_MBConv6',
-        '7x7_MBConv1', '7x7_MBConv2', '7x7_MBConv3', '7x7_MBConv4', '7x7_MBConv5', '7x7_MBConv6',
+        '3x3_MBConv1', '3x3_MBConv2', '3x3_MBConv3',
+        '5x5_MBConv1', '5x5_MBConv2', '5x5_MBConv3',
+        '7x7_MBConv1', '7x7_MBConv2', '7x7_MBConv3',
     ]
     assert not args.weight_bits or 0 < args.weight_bits <= 8
     super_net = SuperProxylessNASNets(
