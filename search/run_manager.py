@@ -344,16 +344,16 @@ class RunManager:
         else:
             total_params = count_parameters(self.net)
         if self.out_log:
-            print('Total training params: %.2fM' % (total_params / 1e6))
+            print('Total training params: %.3fk' % (total_params / 1e3))
         net_info = {
-            'param': '%.2fM' % (total_params / 1e6),
+            'param': '%.3fk' % (total_params / 1e3),
         }
 
         # flops
         flops = self.net_flops()
         if self.out_log:
-            print('Total FLOPs: %.1fM' % (flops / 1e6))
-        net_info['flops'] = '%.1fM' % (flops / 1e6)
+            print('Total FLOPs: %.3fk' % (flops / 1e3))
+        net_info['flops'] = '%.3fk' % (flops / 1e3)
 
         # latency
         latency_types = [] if measure_latency is None else measure_latency.split('#')

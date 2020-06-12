@@ -162,6 +162,19 @@ class ArchSearchRunManager:
         self.warmup = True
         self.warmup_epoch = 0
 
+    def _calc_learning_rate(self, epoch, batch=0, nBatch=None):
+        T_total = self.run_manager.run_config.n_epochs * nBatch
+        T_cur = epoch * nBatch + batch
+        lr = self.arch_search_config.lr * (1 + math.cos(math.pi * (1 + 0.5 * T_cur / T_total)))
+        return lr
+
+    def adjust_arch_learning_rate(self, optimizer, epoch, batch=0, nBatch=None):
+        """ adjust learning of a given optimizer and return the new learning rate """
+        new_lr = self._calc_learning_rate(epoch, batch, nBatch)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = new_lr
+        return new_lr
+
     @property
     def net(self):
         return self.run_manager.net.module
@@ -305,8 +318,8 @@ class ArchSearchRunManager:
                     self.run_manager.write_log(batch_log, 'train')
             valid_res, flops, latency = self.validate()
             val_log = 'Warmup Valid [{0}/{1}]\tloss {2:.3f}\ttop-1 acc {3:.3f}\ttop-5 acc {4:.3f}\t' \
-                      'Train top-1 {top1.avg:.3f}\ttop-5 {top5.avg:.3f}\tflops: {5:.1f}M'. \
-                format(epoch + 1, warmup_epochs, *valid_res, flops / 1e6, top1=top1, top5=top5)
+                      'Train top-1 {top1.avg:.3f}\ttop-5 {top5.avg:.3f}\tflops: {5:.3f}k'. \
+                format(epoch + 1, warmup_epochs, *valid_res, flops / 1e3, top1=top1, top5=top5)
             if self.arch_search_config.target_hardware not in [None, 'flops']:
                 val_log += '\t' + self.arch_search_config.target_hardware + ': %.3fms' % latency
             self.run_manager.write_log(val_log, 'valid')
@@ -358,6 +371,10 @@ class ArchSearchRunManager:
                 # lr
                 lr = self.run_manager.run_config.adjust_learning_rate(
                     self.run_manager.optimizer, epoch, batch=i, nBatch=nBatch
+                )
+                # arch lr
+                arch_lr = self.adjust_arch_learning_rate(
+                    self.arch_optimizer, epoch, batch=i, nBatch=nBatch
                 )
                 # network entropy
                 net_entropy = self.net.entropy()
@@ -419,9 +436,9 @@ class ArchSearchRunManager:
                                 'Loss {losses.val:.4f} ({losses.avg:.4f})\t' \
                                 'Entropy {entropy.val:.5f} ({entropy.avg:.5f})\t' \
                                 'Top-1 acc {top1.val:.3f} ({top1.avg:.3f})\t' \
-                                'Top-5 acc {top5.val:.3f} ({top5.avg:.3f})\tlr {lr:.5f}'. \
+                                'Top-5 acc {top5.val:.3f} ({top5.avg:.3f})\tlr {lr:.5f}\tarch lr {arch_lr:.5f}'. \
                         format(epoch + 1, i, nBatch - 1, batch_time=batch_time, data_time=data_time,
-                               losses=losses, entropy=entropy, top1=top1, top5=top5, lr=lr)
+                               losses=losses, entropy=entropy, top1=top1, top5=top5, lr=lr, arch_lr=arch_lr)
                     self.run_manager.write_log(batch_log, 'train')
 
             # print current network architecture
@@ -437,10 +454,10 @@ class ArchSearchRunManager:
                 val_log = 'Valid [{0}/{1}]\tloss {2:.3f}\ttop-1 acc {3:.3f} ({4:.3f})\ttop-5 acc {5:.3f}\t' \
                           'Train top-1 {top1.avg:.3f}\ttop-5 {top5.avg:.3f}\t' \
                           'Entropy {entropy.val:.5f}\t' \
-                          'Latency-{6}: {7:.3f}ms\tFlops: {8:.2f}M'. \
+                          'Latency-{6}: {7:.3f}ms\tFlops: {8:.3f}k'. \
                     format(epoch + 1, self.run_manager.run_config.n_epochs, val_loss, val_top1,
                            self.run_manager.best_acc, val_top5, self.arch_search_config.target_hardware,
-                           latency, flops / 1e6, entropy=entropy, top1=top1, top5=top5)
+                           latency, flops / 1e3, entropy=entropy, top1=top1, top5=top5)
                 self.run_manager.write_log(val_log, 'valid')
             # save model
             self.run_manager.save_model({
@@ -453,7 +470,7 @@ class ArchSearchRunManager:
 
         # convert to normal network according to architecture parameters
         normal_net = self.net.cpu().convert_to_normal_net()
-        print('Total training params: %.2fM' % (count_parameters(normal_net) / 1e6))
+        print('Total training params: %.3fk' % (count_parameters(normal_net) / 1e3))
         os.makedirs(os.path.join(self.run_manager.path, 'learned_net'), exist_ok=True)
         json.dump(normal_net.config, open(os.path.join(self.run_manager.path, 'learned_net/net.config'), 'w'), indent=4)
         json.dump(
