@@ -17,14 +17,14 @@ class SuperProxylessNASNets(ProxylessNASNets):
         self._redundant_modules = None
         self._unused_modules = None
 
+        input_channel = make_divisible(72 * width_mult, 8)
         for i in range(len(width_stages)):
             width_stages[i] = make_divisible(width_stages[i] * width_mult, 8)
 
         # first conv layer
         first_conv = ConvLayer(
-            1, 1, kernel_size=1, stride=1, use_bn=True, act_func=None, ops_order='weight_bn', num_bits=num_bits
+            1, input_channel, kernel_size=(5, 11), stride=(1, 2), use_bn=True, act_func='relu6', ops_order='weight_bn_act', num_bits=num_bits
         )
-        input_channel = 1
 
         # blocks
         blocks = []
@@ -52,10 +52,13 @@ class SuperProxylessNASNets(ProxylessNASNets):
                 input_channel = width
 
         # feature mix layer
-        feature_mix_layer = IdentityLayer(input_channel, input_channel)
+        last_channel = make_divisible(144 * width_mult, 8)
+        feature_mix_layer = ConvLayer(
+            input_channel, last_channel, kernel_size=1, use_bn=True, act_func='relu6', ops_order='weight_bn_act', num_bits=num_bits
+        )
 
         # classifier
-        classifier = LinearLayer(input_channel, n_classes, dropout_rate=dropout_rate, num_bits=num_bits)
+        classifier = LinearLayer(last_channel, n_classes, dropout_rate=dropout_rate, num_bits=num_bits)
 
         super(SuperProxylessNASNets, self).__init__(first_conv, blocks, feature_mix_layer, classifier)
 
