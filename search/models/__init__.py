@@ -51,7 +51,7 @@ class SpeechCommandsRunConfig(RunConfig):
                  dataset='speech_commands', train_batch_size=256, test_batch_size=500, valid_size=None,
                  opt_type='sgd', opt_param=None, weight_decay=4e-5, label_smoothing=0.1, no_decay_keys='bn',
                  model_init='he_fout', init_div_groups=False, validation_frequency=1, print_frequency=10,
-                 n_worker=32, resize_scale=0.08, distort_color='normal', **kwargs):
+                 n_worker=32, resize_scale=0.08, distort_color='normal', n_mfcc=10, **kwargs):
         super(SpeechCommandsRunConfig, self).__init__(
             n_epochs, init_lr, lr_schedule_type, lr_schedule_param,
             dataset, train_batch_size, test_batch_size, valid_size,
@@ -62,6 +62,7 @@ class SpeechCommandsRunConfig(RunConfig):
         self.n_worker = n_worker
         self.resize_scale = resize_scale
         self.distort_color = distort_color
+        self.n_mfcc = n_mfcc
 
         print(kwargs.keys())
 
@@ -74,4 +75,5 @@ class SpeechCommandsRunConfig(RunConfig):
             'n_worker': self.n_worker,
             'resize_scale': self.resize_scale,
             'distort_color': self.distort_color,
+            'n_mfcc': self.n_mfcc,
         }

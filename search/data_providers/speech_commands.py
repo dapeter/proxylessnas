@@ -17,12 +17,13 @@ from data_providers.base_provider import *
 class SpeechCommandsDataProvider(DataProvider):
 
     def __init__(self, save_path=None, train_batch_size=100, test_batch_size=100, valid_size=None,
-                 n_worker=32, resize_scale=None, distort_color=None):
+                 n_worker=32, resize_scale=None, distort_color=None, n_mfcc=10):
         self._save_path = save_path
+        self.n_mfcc = n_mfcc
 
-        train_dataset = SpeechCommandsFolder(self.save_path + "train", augment=True)
-        validation_dataset = SpeechCommandsFolder(self.save_path + "val", augment=False)
-        test_dataset = SpeechCommandsFolder(self.save_path + "test", augment=False)
+        train_dataset = SpeechCommandsFolder(self.save_path + "train", augment=True, n_mfcc=self.n_mfcc)
+        validation_dataset = SpeechCommandsFolder(self.save_path + "val", augment=False, n_mfcc=self.n_mfcc)
+        test_dataset = SpeechCommandsFolder(self.save_path + "test", augment=False, n_mfcc=self.n_mfcc)
 
         self.train = torch.utils.data.DataLoader(
             train_dataset, batch_size=train_batch_size,
@@ -44,7 +45,7 @@ class SpeechCommandsDataProvider(DataProvider):
     # TODO change width
     @property
     def data_shape(self):
-        return 1, 10, 51  # C, H, W
+        return 1, self.n_mfcc, 51  # C, H, W
 
     # TODO add silence
     @property
@@ -153,11 +154,12 @@ class SpeechCommandsFolder(torch.utils.data.Dataset):
         targets (list): The class_index value for each image in the dataset
     """
 
-    def __init__(self, root, augment=False):
+    def __init__(self, root, augment=False, n_mfcc=10):
         self.root = root
         self.augment = augment
         self.extensions = ('.wav',)
         self.sample_rate = 16000
+        self.n_mfcc = n_mfcc
         self.classes = ['yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go', 'silence', 'unknown']
         self.class_to_idx = {self.classes[i]: i for i in range(len(self.classes))}
 
@@ -180,14 +182,13 @@ class SpeechCommandsFolder(torch.utils.data.Dataset):
         self.n_samples = len(all_indices)
 
     def extract_features(self, sample):
-        n_mfcc = 10
         melkwargs = {
             "win_length": 640,
             "hop_length": 320,
             "n_fft": 640
         }
 
-        mfcc = torchaudio.transforms.MFCC(self.sample_rate, n_mfcc, melkwargs=melkwargs)(sample)
+        mfcc = torchaudio.transforms.MFCC(self.sample_rate, self.n_mfcc, melkwargs=melkwargs)(sample)
 
         return mfcc
 

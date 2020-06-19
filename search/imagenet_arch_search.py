@@ -43,6 +43,8 @@ parser.add_argument('--n_worker', type=int, default=4)
 parser.add_argument('--resize_scale', type=float, default=0.08)
 parser.add_argument('--distort_color', type=str, default='normal', choices=['normal', 'strong', 'None'])
 
+parser.add_argument('--n_mfcc', type=int, default=10)
+
 """ net config """
 parser.add_argument('--width_stages', type=str, default='72')
 parser.add_argument('--n_cell_stages', type=str, default='12')
