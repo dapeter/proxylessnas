@@ -292,7 +292,7 @@ if __name__ == '__main__':
 
             # fold batch norm and quantize model
             #checkpoint = fold_batch_norm(checkpoint)
-            checkpoint = quantize_state_dict_qmn(checkpoint, n_bits)
+            checkpoint = quantize_state_dict(checkpoint, n_bits)
             run_manager.net.module.load_state_dict(checkpoint)
 
             output_dict = {}
@@ -317,4 +317,4 @@ if __name__ == '__main__':
                 **output_dict,
                 'test_loss': '%f' % loss, 'test_acc1': '%f' % acc1, 'test_acc5': '%f' % acc5
             }
-            json.dump(output_dict, open('%s/output_quantized_%d_bit_qmn' % (args.path, n_bits), 'w'), indent=4)
+            json.dump(output_dict, open('%s/output_quantized_%d_bit' % (args.path, n_bits), 'w'), indent=4)
