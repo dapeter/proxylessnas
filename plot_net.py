@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     colors = {3: "#0382cd", 5: "#f9b72e", 7: "#a42035"}  # kernel size to color
     shapes = {i: 2*i/5 + 3/5 for i in range(1, 7)}  # expand ratio to shape
-    dim = [1, 10, 51]  # C x H x W
+    dim = [1, 20, 51]  # C x H x W
 
     with open(infile, "r") as f:
         net = json.load(f)
@@ -63,9 +63,9 @@ if __name__ == '__main__':
         if conv["name"] == "ZeroLayer":
             continue
         else:
-            label = "MB{} {}x{}".format(conv["expand_ratio"], conv["kernel_size"], conv["kernel_size"])
+            label = "MBC{}, {}x{}".format(conv["expand_ratio"], conv["kernel_size"], conv["kernel_size"])
             if next_conv and next_conv["name"] != "ZeroLayer":
-                next_label = "MB{} {}x{}".format(next_conv["expand_ratio"], next_conv["kernel_size"], next_conv["kernel_size"])
+                next_label = "MBC{}, {}x{}".format(next_conv["expand_ratio"], next_conv["kernel_size"], next_conv["kernel_size"])
             else:
                 next_label = ""
 
@@ -73,16 +73,17 @@ if __name__ == '__main__':
         dim[1] //= conv["stride"]
         dim[2] //= conv["stride"]
 
-        if next_label == label:
+        if next_label == label and not i == 0:
             blocks_per_node += 1
         else:
             print_label = "{} x ".format(blocks_per_node) + label
+            #print_label = label
             blocks_per_node = 1
             G.add_node(node, label=print_label, color=colors[conv["kernel_size"]], width=shapes[conv["expand_ratio"]])
             G.add_edge(node, next_node, label="x".join([str(d) for d in dim]))
 
-            #if shortcut and shortcut["name"] == "IdentityLayer":
-            #    G.add_edge(node, node, label="id")
+            if shortcut and shortcut["name"] == "IdentityLayer":
+                G.add_edge(node, node, label="id")
 
             layer += 1
 
@@ -115,7 +116,7 @@ if __name__ == '__main__':
         # Classifier
         classifier = net["classifier"]
         conv_name = "FC" if classifier["name"] == "LinearLayer" else "Unknown"
-        G.add_node("L{}".format(layer), color="#8b8c8d", label="Pooling & {}".format(conv_name))
+        G.add_node("L{}".format(layer), color="#8b8c8d", label="Conv 1x1 &\nPooling & {}".format(conv_name))
         dim[0] = classifier["out_features"]
         dim[1] = 1
         dim[2] = 1
