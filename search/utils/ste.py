@@ -45,3 +45,37 @@ class LinearQuantizerDorefa(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         return grad_output, None, None, None
+
+
+class LinearQuantizerHardTanh(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, num_bits, min_x, max_x):
+        ctx.save_for_backward(input, torch.tensor(min_x), torch.tensor(max_x))
+
+        output = (input - min_x) * ((2.0 ** num_bits - 1.0) / (max_x - min_x))  # transform to [0,2**num_bits-1]
+        output = torch.round(output) * (1.0 / (2.0 ** num_bits - 1.0))
+        output = torch.clamp(output, 0, 1)
+        output = output * (max_x - min_x) + min_x
+
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        input, min_x, max_x = ctx.saved_tensors
+        grad_input = grad_output.clone()
+        grad_input = torch.where((min_x <= input) & (input <= max_x), grad_input, torch.zeros_like(grad_input))
+        return grad_input, None, None, None
+
+
+class ActivationQuantizer(torch.nn.Module):
+    def __init__(self, num_bit, min_x, max_x):
+        super(ActivationQuantizer, self).__init__()
+        self.num_bit = num_bit
+        self.min_x = min_x
+        self.max_x = max_x
+
+    def forward(self, x):
+        return LinearQuantizerHardTanh.apply(x, self.num_bit, self.min_x, self.max_x)
+
+    def extra_repr(self):
+        return 'num_bit={}, min_x={}, max_x={}'.format(self.num_bit, self.min_x, self.max_x)
