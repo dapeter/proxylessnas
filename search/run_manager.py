@@ -189,8 +189,9 @@ class RunManager:
             self.net.to(self.device)
             cudnn.benchmark = True
         else:
-            raise ValueError
-            # self.device = torch.device('cpu')
+            self.device = torch.device('cpu')
+            self.net = torch.nn.DataParallel(self.net)
+            self.net.to(self.device)
 
         # net info
         self.print_net_info(measure_latency)
