@@ -5,7 +5,7 @@
 import torch.utils.data
 import torchvision
 from torchvision.datasets.vision import VisionDataset
-import torchaudio
+import librosa
 import os
 import os.path
 import random
@@ -116,8 +116,9 @@ def load_bg_data(dir):
     for root, _, fnames in os.walk(background_folder):
         for fname in fnames:
             path = os.path.join(root, fname)
-            waveform, sample_rate = torchaudio.load(path)
-            background_data.append(waveform)
+            waveform, sample_rate = librosa.load(path)
+            waveform = np.reshape(waveform, (1, waveform.shape[0]))
+            background_data.append(torch.from_numpy(waveform))
 
     return background_data
 
@@ -182,26 +183,22 @@ class SpeechCommandsFolder(torch.utils.data.Dataset):
         self.n_samples = len(all_indices)
 
     def extract_features(self, sample):
-        melkwargs = {
-            "win_length": 640,
-            "hop_length": 320,
-            "n_fft": 640
-        }
+        mfcc = librosa.feature.mfcc(sample.numpy()[0], sr=self.sample_rate, n_mfcc=self.n_mfcc, hop_length=320, n_fft=640)
+        mfcc = torch.from_numpy(mfcc.astype('float32'))
 
-        mfcc = torchaudio.transforms.MFCC(self.sample_rate, self.n_mfcc, melkwargs=melkwargs)(sample)
-
-        return mfcc
+        return torch.reshape(mfcc, (1, mfcc.shape[0], mfcc.shape[1]))
 
     def loader(self, path):
-        waveform, sample_rate = torchaudio.load(path)
+        waveform, sample_rate = librosa.load(path, sr=self.sample_rate)
         assert self.sample_rate == sample_rate
-        n_samples = waveform.shape[1]
+        n_samples = waveform.shape[0]
+        waveform = np.reshape(waveform, (1, n_samples))
 
         if n_samples == sample_rate:
-            return waveform
+            return torch.from_numpy(waveform)
         elif n_samples < sample_rate:
             padded_waveform = torch.zeros([1, sample_rate])
-            padded_waveform[0, 0:n_samples] = waveform[0]
+            padded_waveform[0, 0:n_samples] = torch.from_numpy(waveform[0])
             return padded_waveform
         elif n_samples > sample_rate:
             raise (RuntimeError("File {} has more than {} samples.".format(path, sample_rate)))
