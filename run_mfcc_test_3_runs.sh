@@ -1,14 +1,15 @@
-#!/bin/bash
-#SBATCH --job-name=pless
-#SBATCH --output=slurm_out/pless_%A_%a.out
-#SBATCH --error=slurm_out/pless_%A_%a.err
+#!/bin/bash 
+#SBATCH --job-name=pless 
+#SBATCH --output=slurm_out/pless_mfcc40_3_runs_%A_%a.out
+#SBATCH --error=slurm_out/pless_mfcc40_3_runs_%A_%a.err
 #SBATCH --gres=gpu:GeForceGTX10606GB:1
 #SBATCH --partition=gpu
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=2
-#SBATCH --array=0-6:1%4
+#SBATCH --array=1-5:1
+#SBATCH --time=2-00:00:00
 
-PARRAY=(0 1 2 4 8 16 32)
+PARRAY=(0 1 2 4 8 16)
 
 #################
 # configuration #
@@ -105,11 +106,23 @@ echo "HOSTNAME=${HOSTNAME}"
 # START: user code #
 ####################
 
-echo -e "\n\nRUN: search\n"
+echo -e "\n\nRUN: pless\n"
 cd search
 sleep $[ ( $RANDOM % 120 )  + 1 ]s
-#pless
-python imagenet_arch_search.py --path pless_${SLURM_ARRAY_TASK_ID} --dataset speech_commands --init_lr 0.025 --train_batch_size 100 --test_batch_size 100 --target_hardware "flops" --flops_ref_value 20e6 --n_worker 4 --gpu 0 --arch_lr 5e-3 --grad_reg_loss_alpha 1 --grad_reg_loss_beta ${PARRAY[$SLURM_ARRAY_TASK_ID]}
+
+RUN_NO=1
+for SEED in 0 53 63
+do
+  echo RUN: NAS and retraining with seed: $SEED
+  echo RUN: Run number: $RUN_NO
+
+  python imagenet_arch_search.py --path pless_sweep_mfcc40_${SLURM_ARRAY_TASK_ID}_run_${RUN_NO} --dataset speech_commands --init_lr 0.2 --train_batch_size 100 --test_batch_size 100 --target_hardware "flops" --flops_ref_value 20e6 --n_worker 4 --gpu 0 --arch_lr 4e-3 --grad_reg_loss_alpha 1 --grad_reg_loss_beta ${PARRAY[$SLURM_ARRAY_TASK_ID]} --weight_bits 8 --n_mfcc 40 --manual_seed $SEED
+
+  sleep 60s
+  python imagenet_run_exp.py --path pless_sweep_mfcc40_${SLURM_ARRAY_TASK_ID}_run_${RUN_NO}/learned_net --train --gpu 0 --manual_seed $SEED
+
+  let RUN_NO++
+done
 
 ##################
 # END: user code #

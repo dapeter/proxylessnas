@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=pless
-#SBATCH --output=slurm_out/pless_%A_%a.out
-#SBATCH --error=slurm_out/pless_%A_%a.err
+#SBATCH --output=slurm_out/pless_model_best_quant_%A_%a.out
+#SBATCH --error=slurm_out/pless_model_best_quant_%A_%a.err
 #SBATCH --gres=gpu:GeForceGTX10606GB:1
 #SBATCH --partition=gpu
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=2
-#SBATCH --array=0-6:1%4
+#SBATCH --array=0-8:1%3
 
-PARRAY=(0 1 2 4 8 16 32)
+PARRAY=("model_best_1bit" "model_best_2bit" "model_best_3bit" "model_best_4bit" "model_best_5bit" "model_best_6bit" "model_best_7bit" "model_best_8bit" "model_best_32bit") 
 
 #################
 # configuration #
@@ -105,11 +105,11 @@ echo "HOSTNAME=${HOSTNAME}"
 # START: user code #
 ####################
 
-echo -e "\n\nRUN: search\n"
+echo -e "\n\nRUN: train\n"
 cd search
 sleep $[ ( $RANDOM % 120 )  + 1 ]s
-#pless
-python imagenet_arch_search.py --path pless_${SLURM_ARRAY_TASK_ID} --dataset speech_commands --init_lr 0.025 --train_batch_size 100 --test_batch_size 100 --target_hardware "flops" --flops_ref_value 20e6 --n_worker 4 --gpu 0 --arch_lr 5e-3 --grad_reg_loss_alpha 1 --grad_reg_loss_beta ${PARRAY[$SLURM_ARRAY_TASK_ID]}
+echo /clusterFS/home/student/deekay/proxylessnas/search/${PARRAY[$SLURM_ARRAY_TASK_ID]}/learned_net
+python imagenet_run_exp.py --path /clusterFS/home/student/deekay/proxylessnas/search/${PARRAY[$SLURM_ARRAY_TASK_ID]}/learned_net --train --gpu 0
 
 ##################
 # END: user code #
